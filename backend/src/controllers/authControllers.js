@@ -1,4 +1,5 @@
 import { userModels } from "../models/userModels.js";
+import { transporter } from "../config/nodemailer.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
@@ -31,6 +32,15 @@ export async function register(req, res) {
       sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
       maxAge: 3 * 24 * 60 * 60 * 1000, // ! 3 days
     });
+
+    const mailOptions = {
+      from: process.env.SMTP_USER,
+      to: email,
+      subject: "Welcome to the MERN Auth App 🚀, by PaulDev",
+      text: `Hello ${name}, Welcome to the MERN Auth App, you have successfully registered! with email: ${email}`,
+    };
+
+    await transporter.sendMail(mailOptions);
 
     res
       .status(201)
@@ -96,5 +106,145 @@ export async function logout(req, res) {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server Error, LOGOUT" });
+  }
+}
+
+export async function sendVerifyOPT(req, res) {
+  try {
+    const { userId } = req.body;
+
+    const user = await userModels.findById(userId);
+    if (user.isVerified) {
+      return res.status(400).json({ message: "User is verified" });
+    }
+
+    const otp = String(Math.floor(100000 + Math.random() * 900000));
+
+    user.verifyOTP = otp;
+    user.expiredVerifyOTP = Date.now() + 15 * 60 * 1000; // ! 15 minutes
+
+    await user.save();
+
+    const mailOptions = {
+      from: process.env.SMTP_USER,
+      to: user.email,
+      subject: "Verify your email 🚀, by PaulDev",
+      text: `Hello ${user.name}, Your One-Time Password (OTP) is ${otp}`,
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    res.status(200).json({ message: "OTP sent" });
+  } catch (error) {}
+}
+
+export async function verifyEmail(req, res) {
+  const { userId, otp } = req.body;
+  if (!userId || !otp) {
+    return res.status(400).json({ message: "Missing Details" });
+  }
+
+  try {
+    const user = await userModels.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (user.verifyOTP === "" || user.verifyOTP !== otp) {
+      return res.status(400).json({ message: "Invalid OTP" });
+    }
+
+    if (user.expiredVerifyOTP < Date.now()) {
+      return res.status(400).json({ message: "OTP expired" });
+    }
+
+    user.isVerified = true;
+
+    user.verifyOTP = "";
+    user.expiredVerifyOTP = 0;
+
+    await user.save();
+
+    res.status(200).json({ message: "Email Verified" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server Error, VERIFY EMAIL" });
+  }
+}
+
+export async function isAuthenticated(req, res) {
+  try {
+    res.status(200).json({ message: "Authenticated" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server Error, IS AUTHENTICATED" });
+  }
+}
+
+export async function sendResetPassword(req, res) {
+  const { email } = req.body;
+
+  if (!email) return res.status(400).json({ message: "Email is required" });
+
+  try {
+    const user = await userModels.findOne({ email });
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const otp = String(Math.floor(100000 + Math.random() * 900000));
+
+    user.resetOTP = otp;
+    user.expiredResetOTP = Date.now() + 15 * 60 * 1000; // ! 15 minutes
+
+    await user.save();
+
+    const mailOptions = {
+      from: process.env.SMTP_USER,
+      to: user.email,
+      subject: "Reset your password 🚀, by PaulDev",
+      text: `Hello ${user.name}, Your One-Time Password (OTP) to reset your password is ${otp}`,
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    res
+      .status(200)
+      .json({ message: "OTP sent to reset password successfully" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server Error, RESET PASSWORD" });
+  }
+}
+
+export async function resetPassword(req, res) {
+  const { email, otp, newPassword } = req.body;
+
+  if (!email || !otp || !newPassword)
+    return res.status(400).json({ message: "All fields are required" });
+
+  try {
+    const user = await userModels.findOne({ email });
+
+    if (!email) return res.status(404).json({ message: "User not found" });
+
+    if (user.resetOTP === "" || user.resetOTP !== otp)
+      return res.status(400).json({ message: "Invalid OTP" });
+
+    if (user.expiredResetOTP < Date.now())
+      return res.status(400).json({ message: "OTP expired" });
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    user.password = hashedPassword;
+
+    user.resetOTP = "";
+    user.expiredResetOTP = 0;
+
+    await user.save();
+
+    res.status(200).json({ message: "Password reset successfully" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server Error, RESET PASSWORD" });
   }
 }
