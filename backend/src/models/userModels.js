@@ -7,10 +7,10 @@ const userSchema = mongoose.Schema({
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   verifyOTP: { type: String, default: "" },
-  expiredVerifyOTP: { type: Date, default: 0 },
+  expiredVerifyOTP: { type: Number, default: 0 },
   isVerified: { type: Boolean, default: false },
   resetOTP: { type: String, default: "" },
-  expiredResetOTP: { type: Date, default: 0 },
+  expiredResetOTP: { type: Number, default: 0 },
 });
 
 const userModels = mongoose.model("User", userSchema);
