@@ -11,11 +11,11 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 connectDB();
 
-const frontendOrigin = ["http://localhost:5173", "http://localhost:/3000"];
+const frontendOrigins = ["http://localhost:5173"];
 
 app.use(express.json());
 app.use(cookieParser());
-app.use(cors({ origin: frontendOrigin, credentials: true }));
+app.use(cors({ origin: frontendOrigins, credentials: true }));
 
 app.get("/", (req, res) => {
   res.json({ message: "Hello World" });
