@@ -11,7 +11,7 @@ export async function userAuth(req, res, next) {
     if (tokenDecode.id) {
       req.body.userId = tokenDecode.id;
     } else {
-      return res.status(401).json({ message: "Unauthorized" });
+      return res.status(401).json({ message: "Unauthorized login again" });
     }
 
     next();
